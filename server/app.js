@@ -79,18 +79,14 @@ app.get('/signup',
     res.render('signup');
   });
 
-app.post('/signup', (req, res) => {
-  let username = req.body.username
-  models.Users.get({ username: username })
-    .then((user) => {
-      if (user) {
-        res.redirect('/signup')
-      } else {
-        models.Users.create(req.body)
-          .then((result) => res.redirect('/'))
-          .catch((error) => res.status(404).send(error))
-      }
-    })
+app.post('/signup', async (req, res) => {
+
+  const user = await models.Users.get({ username: req.body.username })
+  if (user) return res.redirect('/signup')
+
+  await models.Users.create(req.body)
+    .catch((error) => res.status(404).send(error))
+  res.redirect('/')
 
 })
 
@@ -99,8 +95,26 @@ app.get('/login', (req, res) => {
   res.render('login');
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
 
+  try {
+    const user = await models.Users.get({ username: req.body.username})
+
+    if (!user) return res.redirect('/login')
+
+    const auth = await models.Users.compare(req.body.password, user.password, user.salt)
+    if (auth) {
+      // TODO: what to do with sessions?
+      res.redirect('/')
+    } else {
+      res.redirect('/login')
+    }
+
+
+  } catch (error) {
+      console.log(error)
+      res.render('login')
+  }
 })
 
 /************************************************************/
