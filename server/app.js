@@ -96,15 +96,15 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-
   try {
     const user = await models.Users.get({ username: req.body.username})
 
     if (!user) return res.redirect('/login')
 
     const auth = await models.Users.compare(req.body.password, user.password, user.salt)
+
     if (auth) {
-      // TODO: what to do with sessions?
+         // TODO: what to do with sessions?
       res.redirect('/')
     } else {
       res.redirect('/login')
