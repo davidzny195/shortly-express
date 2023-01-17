@@ -22,13 +22,17 @@ module.exports.createSession = async (req, res, next) => {
 
       req.session = session
       res.cookie('shortlyid', session.hash);
-      if (session.userId) {
-        const user = await models.Users.get({ id: session.userId })
-        req.session.user['username'] = user.username
+
+      if (!session.userId) {
         return next()
       }
 
+      const user = await models.Users.get({ id: session.userId })
+      req.session.user['username'] = user.username
       next()
+
+
+
     } catch (error) {
       console.error(error)
     }

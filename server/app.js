@@ -3,6 +3,7 @@ const path = require('path');
 const utils = require('./lib/hashUtils');
 const partials = require('express-partials');
 const Auth = require('./middleware/auth');
+const cookieParser = require('./middleware/cookieParser');
 const models = require('./models');
 
 const app = express();
@@ -13,6 +14,9 @@ app.use(partials());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
+// use middleware
+app.use(cookieParser);
+app.use(Auth.createSession);
 
 
 
@@ -84,8 +88,10 @@ app.post('/signup', async (req, res) => {
   const user = await models.Users.get({ username: req.body.username })
   if (user) return res.redirect('/signup')
 
-  await models.Users.create(req.body)
+  const newUser = await models.Users.create(req.body)
     .catch((error) => res.status(404).send(error))
+
+  const updated = await models.Sessions.update({ hash: req.session.hash }, { userId: newUser.insertId })
   res.redirect('/')
 
 })
@@ -115,6 +121,19 @@ app.post('/login', async (req, res) => {
       console.log(error)
       res.render('login')
   }
+})
+
+// LOGOUT
+app.post('/logout', async (req, res) => {
+  console.log(req.session)
+  // try {
+  //   await console.log(req.session)
+  //   // const logout = await models.Sessions.delete({ })
+
+
+  // } catch (error) {
+  //   console.error(error)
+  // }
 })
 
 /************************************************************/
