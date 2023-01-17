@@ -21,24 +21,38 @@ app.use(Auth.createSession);
 
 
 app.get('/',
-(req, res) => {
-  res.render('index');
+async (req, res) => {
+  const session = await models.Sessions.isLoggedIn(req.session)
+  // If accessing a code that does not exist, it should redirect here with and render index -> however, session doesn't exist
+  if (!session) {
+    res.redirect('/login')
+  } else {
+    res.render('index')
+  }
 });
 
 app.get('/create',
 (req, res) => {
-  res.render('index');
+  if (models.Sessions.isLoggedIn(req.session)) {
+    res.render('index')
+  } else {
+    res.redirect('/login')
+  }
 });
 
 app.get('/links',
 (req, res, next) => {
-  models.Links.getAll()
+  if (models.Sessions.isLoggedIn(req.session)) {
+    models.Links.getAll()
     .then(links => {
       res.status(200).send(links);
     })
     .error(error => {
       res.status(500).send(error);
     });
+  } else {
+    res.redirect('/login')
+  }
 });
 
 app.post('/links',
@@ -77,6 +91,10 @@ app.post('/links',
     });
 });
 
+/************************************************************/
+// Write your authentication routes here
+/************************************************************/
+
 // SIGN UP
 app.get('/signup',
   (req, res) => {
@@ -90,7 +108,6 @@ app.post('/signup', async (req, res) => {
 
   const newUser = await models.Users.create(req.body)
     .catch((error) => res.status(404).send(error))
-
   const updated = await models.Sessions.update({ hash: req.session.hash }, { userId: newUser.insertId })
   res.redirect('/')
 
@@ -104,43 +121,28 @@ app.get('/login', (req, res) => {
 app.post('/login', async (req, res) => {
   try {
     const user = await models.Users.get({ username: req.body.username})
+    if (!user || !models.Users.compare(req.body.password, user.password, user.salt)) throw new Error('Not authenticated')
 
-    if (!user) return res.redirect('/login')
-
-    const auth = await models.Users.compare(req.body.password, user.password, user.salt)
-
-    if (auth) {
-         // TODO: what to do with sessions?
-      res.redirect('/')
-    } else {
-      res.redirect('/login')
-    }
-
+    await models.Sessions.update({ hash: req.session.hash }, { userId: user.id })
+    res.redirect('/')
 
   } catch (error) {
-      console.log(error)
-      res.render('login')
+      res.redirect('/login')
   }
 })
 
 // LOGOUT
-app.post('/logout', async (req, res) => {
-  console.log(req.session)
-  // try {
-  //   await console.log(req.session)
-  //   // const logout = await models.Sessions.delete({ })
+app.get('/logout', async (req, res) => {
+  try {
+    const hash = req.session.hash
+    const logout = await models.Sessions.delete({ hash: hash })
+    res.cookie('shortlyid', null)
 
-
-  // } catch (error) {
-  //   console.error(error)
-  // }
+    res.redirect('/login')
+  } catch (error) {
+    console.error(error)
+  }
 })
-
-/************************************************************/
-// Write your authentication routes here
-/************************************************************/
-
-
 
 /************************************************************/
 // Handle the code parameter route last - if all other routes fail
@@ -148,11 +150,20 @@ app.post('/logout', async (req, res) => {
 // If the short-code doesn't exist, send the user to '/'
 /************************************************************/
 
-app.get('/:code', (req, res, next) => {
+app.get('/:code', async (req, res, next) => {
+  // const link = await models.Links.get({ code: req.params.code })
 
+  // if (!link) {
+  //   return res.redirect('/')
+  // }
+
+  // const click = await models.Clicks.create({ linkId: link.id })
+
+  // const update = await models.Links.update(link, { visits: link.visits + 1 })
+  // res.redirect(link.url)
+  // console.log(update)
   return models.Links.get({ code: req.params.code })
     .tap(link => {
-
       if (!link) {
         throw new Error('Link does not exist');
       }
